@@ -1,0 +1,103 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum UploadStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ResponseStatus {
+  SENT
+  ANSWERED
+  UNANSWERED
+}
+
+model Contact {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  responses SurveyResponse[]
+}
+
+model Responsible {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  responses SurveyResponse[]
+}
+
+model Channel {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  responses SurveyResponse[]
+}
+
+model Survey {
+  id        String   @id @default(uuid())
+  name      String
+  startDate DateTime @default(now())
+  endDate   DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  responses SurveyResponse[]
+}
+
+model Upload {
+  id         String       @id @default(uuid())
+  filename   String
+  uploadedAt DateTime     @default(now())
+  rowCount   Int          @default(0)
+  skipped    Int          @default(0)
+  status     UploadStatus @default(PROCESSING)
+}
+
+model SurveyResponse {
+  id String @id @default(uuid())
+
+  protocol String @unique
+
+  contactId     String
+  responsibleId String
+  channelId     String
+  surveyId      String
+
+  contactedAt DateTime
+  sentAt      DateTime?
+  answeredAt  DateTime?
+
+  status ResponseStatus
+
+  score      Int?
+  scoreLabel String?
+
+  contact     Contact     @relation(fields: [contactId], references: [id])
+  responsible Responsible @relation(fields: [responsibleId], references: [id])
+  channel     Channel     @relation(fields: [channelId], references: [id])
+  survey      Survey      @relation(fields: [surveyId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contactId])
+  @@index([responsibleId])
+  @@index([channelId])
+  @@index([surveyId])
+  @@index([status])
+  @@index([contactedAt])
+}

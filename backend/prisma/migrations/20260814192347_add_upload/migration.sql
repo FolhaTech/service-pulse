@@ -1,0 +1,9 @@
+-- CreateTable
+CREATE TABLE "Upload" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "filename" TEXT NOT NULL,
+    "uploadedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "rowCount" INTEGER NOT NULL DEFAULT 0,
+    "skipped" INTEGER NOT NULL DEFAULT 0,
+    "status" TEXT NOT NULL DEFAULT 'PROCESSING'
+);

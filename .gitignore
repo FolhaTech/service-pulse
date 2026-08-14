@@ -18,3 +18,10 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Prisma
+src/generated/
+
+# Db Dev
+*.db
+*.db-journal
