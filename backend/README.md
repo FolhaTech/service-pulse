@@ -1,98 +1,177 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# ServicePulse — Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+API REST em **NestJS 11** com **Prisma 7** sobre **SQLite**, responsável pelo importe e armazenamento de avaliações de atendimento do produto **Juridico Analytics** (pesquisas de satisfação exportadas do MktZap).
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Stack
 
-## Description
+| Camada | Tecnologia |
+|--------|------------|
+| Runtime | Node.js + TypeScript |
+| Framework | NestJS 11 (`@nestjs/core`, `@nestjs/common`, `@nestjs/config`) |
+| ORM | Prisma 7 (`prisma-client`, provider `sqlite`) |
+| Driver | `@prisma/adapter-better-sqlite3` |
+| Banco | SQLite (`backend/dev.db`) |
+| Validação | `class-validator` + `class-transformer` (global `ValidationPipe`) |
+| Upload | `multer` (multipart, limite 25 MB) |
+| CSV | `csv-parse` (latin1/utf-8) |
+| Docs | Swagger + Scalar (`@scalar/nestjs-api-reference` em `/docs`) |
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Pré-requisitos
 
-## Project setup
+- Node.js 20+ (projeto usa TypeScript 5.7, Jest 30, Nest 11)
+- npm
+
+## Configuração inicial
+
+Como o projeto usa o estilo Prisma 7 (`prisma.config.ts`), o schema **não** define `url`. A variável `DATABASE_URL` precisa estar presente no ambiente.
 
 ```bash
-$ npm install
+# 1. Instalar dependências
+npm install
+
+# 2. Gerar o Prisma Client (obrigatório — o código importa de src/generated/prisma)
+npx prisma generate
+
+# 3. Definir as variáveis de ambiente (o repositório inclui backend/.env)
+#    DATABASE_URL="file:./dev.db"
+
+# 4. Aplicar migrations (cria backend/dev.db)
+npx prisma migrate dev
+
+# 5. Subir em modo desenvolvimento
+npm run start:dev
 ```
 
-## Compile and run the project
+> **Importante:** o Prisma Client é gerado em `src/generated/prisma/` (gitignored). Sem `npx prisma generate`, o build, o lint e os testes falham.
+
+## Comandos
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm run start:dev      # modo desenvolvimento com watch
+npm run start          # inicia sem watch
+npm run start:prod     # executa dist/main (após build)
+npm run build          # nest build → dist/
+npm run lint           # eslint com --fix (type-aware)
+npm run format         # prettier --write (src/ e test/)
+npm test               # testes unitários (jest, src/**/*.spec.ts)
+npm run test:watch     # jest --watch
+npm run test:cov       # jest --coverage
+npm run test:e2e       # testes e2e (test/jest-e2e.json)
 ```
 
-## Run tests
+## Arquitetura
+
+```
+backend/
+├── common/prisma/           # PrismaModule (@Global) — fora de src/, intencional
+│   └── prisma.module.ts     #   importa PrismaService via ../../src/...
+├── prisma/
+│   ├── schema.prisma        # schema sem url (DATABASE_URL vem do env)
+│   └── migrations/          # migrations SQL aplicadas pelo prisma migrate
+├── test/
+│   ├── app.e2e-spec.ts      # teste e2e
+│   └── jest-e2e.json
+└── src/
+    ├── main.ts              # bootstrap: CORS, ValidationPipe, shutdown hooks, /docs
+    ├── app.module.ts        # ConfigModule (global) + PrismaModule + SharedModule + UploadsModule
+    ├── app.controller.ts    # GET /
+    ├── common/prisma/       # PrismaService (adapter better-sqlite3, lê DATABASE_URL)
+    ├── generated/prisma/    # client gerado (gitignored)
+    ├── shared/              # SharedModule (@Global)
+    │   ├── services/csv-parser.service.ts   # parse latin1/utf-8
+    │   └── services/metrics.service.ts      # taxa de resposta / índice de satisfação
+    └── uploads/             # UploadsModule
+        ├── uploads.controller.ts
+        ├── uploads.service.ts
+        └── uploads.module.ts
+```
+
+- `PrismaModule` e `SharedModule` são `@Global()`, disponíveis sem import.
+- `ConfigModule` é global e carrega `backend/.env`.
+- O `PrismaService` instancia `PrismaClient` com o adapter `@prisma/adapter-better-sqlite3` e lê `DATABASE_URL` do ambiente.
+
+## Modelo de dados (Prisma)
+
+`prisma/schema.prisma` define:
+
+- **Upload** — registro de cada importação: `filename`, `rowCount`, `skipped`, `status` (`PROCESSING | COMPLETED | FAILED`).
+- **SurveyResponse** — linha de avaliação: `protocol` (único), `contactedAt`, `sentAt`, `answeredAt`, `status` (`SENT | ANSWERED | UNANSWERED`), `score`, `scoreLabel` e relações com `Contact`, `Responsible`, `Channel`, `Survey`.
+- **Contact / Responsible / Channel / Survey** — entidades de apoio criadas com `upsert` durante o import.
+
+## Endpoints
+
+### `GET /`
+
+Resposta simples de health check (`Hello World`).
+
+### `POST /uploads`
+
+Importa um arquivo CSV (multipart, campo `file`, limite 25 MB).
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+curl -X POST http://localhost:3000/uploads \
+  -F "file=@avaliacoes.csv"
 ```
 
-## Deployment
+Fluxo executado pelo `UploadsService.processCsv()`:
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+1. Cria um `Upload` com status `PROCESSING`.
+2. Faz o parse do buffer (fallback latin1/utf-8 via `CsvParserService`).
+3. Para cada linha, mapeia os campos por aliases em português, cria/atualiza `Responsible`, `Channel`, `Survey`, `Contact` (com cache em memória) e monta o `SurveyResponse`.
+4. Descarta linhas sem `protocolo` e remove protocolos duplicados (`skipped`).
+5. Grava com `createMany` e marca o `Upload` como `COMPLETED`.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### `GET /uploads`
+
+Lista todas as importações ordenadas por data (`uploadedAt desc`).
+
+## Mapeamento de campos do CSV
+
+Os cabeçalhos são **minúsculos e sem acentos** (normalização `NFD`) e casados contra aliases:
+
+| Campo do modelo | Aliases aceitos |
+|-----------------|-----------------|
+| `protocol` | `protocolo` |
+| `contactName` | `contato` |
+| `surveyName` | `pesquisa`, `nome da pesquisa`, `nome` |
+| `channelName` | `canal` |
+| `responsibleName` | `responsavel` |
+| `contactedAt` | `data do contato` |
+| `sentAt` | `enviado em` |
+| `answeredAt` | `respondido em` |
+| `score` | `nota` |
+| `scoreLabel` | `rotulo da nota`, `classificacao`, `rotulo` |
+| `status` | `status`, `situacao` |
+| `phone` | `telefone`, `celular`, `fone` |
+
+Status (parse do valor em português):
+
+| Valor no CSV | `ResponseStatus` |
+|--------------|------------------|
+| `enviada` / `enviado` | `SENT` |
+| `respondida` / `respondido` | `ANSWERED` |
+| `nao respondida` / `nao respondido` | `UNANSWERED` |
+| (outro) | `UNANSWERED` (padrão) |
+
+Datas: aceita formato brasileiro `dd/mm/aaaa[ hh:mm]` ou datas ISO parseáveis. Notas: apenas dígitos (`parseScore`).
+
+## Documentação da API
+
+Com o servidor rodando, acesse:
+
+- Swagger/Scalar UI: http://localhost:3000/docs
+
+## Testes
+
+Cobertura atual: `src/app.controller.spec.ts` (unit) e `test/app.e2e-spec.ts` (e2e). O Jest está configurado com `rootDir: src`, `testRegex: .*\.spec\.ts$` e transform `ts-jest`.
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm test
+npm run test:e2e
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Observações de desenvolvimento
 
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- `npm run lint` roda com `--fix` e usa regras type-aware (`recommendedTypeChecked`) que checam todo o TypeScript, inclusive o client gerado.
+- `backend/.env` contém `DATABASE_URL="file:./dev.db"` — o arquivo de banco fica em `backend/dev.db`.
+- Para evoluir o schema: altere `prisma/schema.prisma` e rode `npx prisma migrate dev`, depois `npx prisma generate`.

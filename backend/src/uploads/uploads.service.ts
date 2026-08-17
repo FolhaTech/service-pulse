@@ -4,18 +4,18 @@ import { Prisma, ResponseStatus, Upload, UploadStatus } from 'src/generated/pris
 import { CsvParserService } from 'src/shared/services/csv-parser.service';
 
 const FIELD_ALIASES: Record<string, string[]> = {
-  protocol: ['protocolo', 'protocol'],
-  contactName: ['contato', 'nome do contato', 'nome'],
-  phone: ['telefone', 'celular', 'fone'],
-  responsibleName: ['responsavel', 'atendente', 'operador'],
+  protocol: ['protocolo'],
+  contactName: ['contato'],
+  surveyName: ['pesquisa', 'nome da pesquisa', 'nome'],
   channelName: ['canal'],
-  surveyName: ['pesquisa', 'nome da pesquisa'],
-  contactedAt: ['data do contato', 'data de contato', 'data contato'],
-  sentAt: ['data do envio', 'data de envio', 'data envio'],
-  answeredAt: ['data da resposta', 'data de resposta', 'data resposta'],
+  responsibleName: ['responsavel'],
+  contactedAt: ['data do contato'],
+  sentAt: ['enviado em'],
+  answeredAt: ['respondido em'],
+  score: ['nota'],
+  scoreLabel: ['rotulo da nota', 'classificacao', 'rotulo'],
   status: ['status', 'situacao'],
-  score: ['nota', 'score'],
-  scoreLabel: ['rotulo', 'classificacao', 'avaliacao'],
+  phone: ['telefone', 'celular', 'fone'],
 };
 
 const STATUS_MAP: Record<string, ResponseStatus> = {
@@ -76,13 +76,24 @@ export class UploadsService {
         rows.push(await this.mapRow(record, protocol, caches));
       }
 
-      if (rows.length > 0) {
-        await this.prisma.surveyResponse.createMany({ data: rows });
+      const seeProtocols = new Set<string>();
+      const uniqueRows = rows.filter((row) => {
+        if (seeProtocols.has(row.protocol)) return false;
+        seeProtocols.add(row.protocol);
+        return true;
+      });
+
+      skipped += rows.length - uniqueRows.length;
+
+      if (uniqueRows.length > 0) {
+        await this.prisma.surveyResponse.createMany({
+          data: uniqueRows,
+        });
       }
 
       return this.prisma.upload.update({
         where: { id: upload.id },
-        data: { status: UploadStatus.COMPLETED, rowCount: rows.length, skipped },
+        data: { status: UploadStatus.COMPLETED, rowCount: uniqueRows.length, skipped },
       });
     } catch (error) {
       await this.prisma.upload
