@@ -1,30 +1,19 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/common/prisma/prisma.service';
 import { Prisma, ResponseStatus, Upload, UploadStatus } from 'src/generated/prisma/client';
-import { CsvParserService } from 'src/shared/services/csv-parser.service';
+import CsvParserService from 'src/shared/services/csv-parser.service';
 
 const FIELD_ALIASES: Record<string, string[]> = {
   protocol: ['protocolo'],
-  contactName: ['contato'],
-  surveyName: ['pesquisa', 'nome da pesquisa', 'nome'],
+  contactName: ['nome_cliente', 'nome'],
+  surveyName: ['nome'],
   channelName: ['canal'],
   responsibleName: ['responsavel'],
-  contactedAt: ['data do contato'],
-  sentAt: ['enviado em'],
-  answeredAt: ['respondido em'],
+  contactedAt: ['data'],
+  sentAt: ['enviado_em'],
+  answeredAt: ['respondido_em'],
   score: ['nota'],
-  scoreLabel: ['rotulo da nota', 'classificacao', 'rotulo'],
-  status: ['status', 'situacao'],
-  phone: ['telefone', 'celular', 'fone'],
-};
-
-const STATUS_MAP: Record<string, ResponseStatus> = {
-  enviada: ResponseStatus.SENT,
-  enviado: ResponseStatus.SENT,
-  respondida: ResponseStatus.ANSWERED,
-  respondido: ResponseStatus.ANSWERED,
-  'nao respondida': ResponseStatus.UNANSWERED,
-  'nao respondido': ResponseStatus.UNANSWERED,
+  phone: ['contato'],
 };
 
 interface LookupCaches {
@@ -120,7 +109,15 @@ export class UploadsService {
     protocol: string,
     caches: LookupCaches,
   ): Promise<Prisma.SurveyResponseCreateManyInput> {
-    const responsibleName = this.pick(record, FIELD_ALIASES.responsibleName) || 'Desconhecido';
+    const responsibleValue = this.pick(record, FIELD_ALIASES.responsibleName);
+    const scoreValue = this.pick(record, FIELD_ALIASES.score);
+    const hasRatingInResponsible = this.isRating(responsibleValue);
+
+    const responsibleName =
+      hasRatingInResponsible || !responsibleValue ? 'Desconhecido' : responsibleValue;
+
+    const effectiveScore = hasRatingInResponsible ? responsibleValue : scoreValue;
+
     const channelName = this.pick(record, FIELD_ALIASES.channelName) || 'Sem canal';
     const surveyName = this.pick(record, FIELD_ALIASES.surveyName) || 'Sem pesquisa';
     const contactName = this.pick(record, FIELD_ALIASES.contactName) || 'Contato desconhecido';
@@ -142,9 +139,9 @@ export class UploadsService {
       contactedAt: this.parseDate(this.pick(record, FIELD_ALIASES.contactedAt)) ?? new Date(),
       sentAt: this.parseDate(this.pick(record, FIELD_ALIASES.sentAt)),
       answeredAt: this.parseDate(this.pick(record, FIELD_ALIASES.answeredAt)),
-      status: this.parseStatus(this.pick(record, FIELD_ALIASES.status)),
-      score: this.parseScore(this.pick(record, FIELD_ALIASES.score)),
-      scoreLabel: this.pick(record, FIELD_ALIASES.scoreLabel) ?? null,
+      status: this.parseStatus(effectiveScore),
+      score: this.parseScore(effectiveScore),
+      scoreLabel: this.parseScoreLabel(effectiveScore),
     };
   }
 
@@ -217,16 +214,50 @@ export class UploadsService {
     return undefined;
   }
 
+  private isRating(value: string | undefined): boolean {
+    return /^(?:[1-5])\s*-\s*(?:[a-záàâãéêíóôõúç]+)$/i.test(value?.trim() ?? '');
+  }
+
   private parseScore(value: string | undefined): number | null {
-    const digits = (value ?? '').replace(/\D/g, '');
-    if (!digits) return null;
-    const parsed = Number.parseInt(digits, 10);
-    return Number.isNaN(parsed) ? null : parsed;
+    const match = value?.trim().match(/^([1-5])\s*-/);
+
+    if (match) {
+      return Number(match[1]);
+    }
+
+    const numeric = Number(value?.trim());
+
+    return Number.isInteger(numeric) && numeric >= 1 && numeric <= 5 ? numeric : null;
+  }
+
+  private parseScoreLabel(value: string | undefined): string | null {
+    const match = value?.trim().match(/^\d\s*-\s*(.+)$/);
+
+    return match?.[1]?.trim() ?? null;
   }
 
   private parseStatus(value: string | undefined): ResponseStatus {
-    const normalized = (value ?? '').trim().toLowerCase();
-    return STATUS_MAP[normalized] ?? ResponseStatus.UNANSWERED;
+    const normalized = value
+      ?.trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    if (!normalized || normalized.includes('nao respondido')) {
+      return ResponseStatus.UNANSWERED;
+    }
+
+    if (/^[1-5]\s*-/.test(normalized)) {
+      return ResponseStatus.ANSWERED;
+    }
+
+    const numeric = Number(normalized);
+
+    if (Number.isInteger(numeric) && numeric >= 1 && numeric <= 5) {
+      return ResponseStatus.ANSWERED;
+    }
+
+    return ResponseStatus.UNANSWERED;
   }
   private parseDate(value: string | undefined): Date | null {
     if (!value) return null;

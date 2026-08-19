@@ -4,44 +4,11 @@ import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import Typography from '@mui/material/Typography';
 import { AppShell } from '../../../shared/components/layout';
-import { DataTable, FilterBar, PageHeader, StatusBadge } from '../../../shared/components/ui';
 import type { DataTableColumn } from '../../../shared/components/ui';
+import { DataTable, FilterBar, PageHeader, StatusBadge } from '../../../shared/components/ui';
+import { useAuditRecords } from '../hooks/useAuditRecords';
 import type { AuditRecord } from '../types/analytics';
-
-const records: AuditRecord[] = [
-  {
-    initials: 'MS',
-    agent: 'Mariana Santos',
-    rating: 'Regular',
-    quantity: 6,
-    percentage: '10,5%',
-    severity: 'Atenção',
-  },
-  {
-    initials: 'CO',
-    agent: 'Carlos Oliveira',
-    rating: 'Ruim',
-    quantity: 4,
-    percentage: '8,7%',
-    severity: 'Crítico',
-  },
-  {
-    initials: 'AL',
-    agent: 'Ana Lima',
-    rating: 'Ruim',
-    quantity: 7,
-    percentage: '14,2%',
-    severity: 'Crítico',
-  },
-  {
-    initials: 'FP',
-    agent: 'Fernando Costa',
-    rating: 'Regular',
-    quantity: 3,
-    percentage: '5,1%',
-    severity: 'Atenção',
-  },
-];
+import { mapAudit } from '../utils/mapper';
 
 const columns: DataTableColumn<AuditRecord>[] = [
   {
@@ -81,6 +48,10 @@ const columns: DataTableColumn<AuditRecord>[] = [
 ];
 
 export function AuditPage() {
+  const audit = useAuditRecords();
+
+  const records: AuditRecord[] = (audit.data ?? []).map(mapAudit);
+
   return (
     <AppShell title="Auditoria">
       <PageHeader
@@ -116,7 +87,7 @@ export function AuditPage() {
         minWidth={760}
       />
       <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-        Exibindo 4 de 24 registros críticos/atenção.
+        Exibindo {records.length} registros críticos/atenção.
       </Typography>
     </AppShell>
   );

@@ -1,5 +1,11 @@
 import axios, { type AxiosInstance } from 'axios';
-import type { Upload } from '../types/api';
+import type {
+  AgentPerformanceRow,
+  AuditRow,
+  DistributionRow,
+  OverviewResult,
+  Upload,
+} from '../types/api';
 
 export class ApiService {
   private readonly client: AxiosInstance;
@@ -27,6 +33,26 @@ export class ApiService {
     const formData = new FormData();
     formData.append('file', file);
     const response = await this.client.post<Upload>('/uploads', formData);
+    return response.data;
+  }
+
+  async getOverview(): Promise<OverviewResult> {
+    const response = await this.client.get<OverviewResult>('/analytics/overview');
+    return response.data;
+  }
+
+  async getAgentPerformance(): Promise<AgentPerformanceRow[]> {
+    const response = await this.client.get<AgentPerformanceRow[]>('/analytics/agents');
+    return response.data;
+  }
+
+  async getDistribution(): Promise<DistributionRow[]> {
+    const response = await this.client.get<DistributionRow[]>('/analytics/distribution');
+    return response.data;
+  }
+
+  async getAuditRecords(): Promise<AuditRow[]> {
+    const response = await this.client.get<AuditRow[]>('/analytics/audit');
     return response.data;
   }
 }

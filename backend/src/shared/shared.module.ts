@@ -1,5 +1,5 @@
 import { Global, Module } from '@nestjs/common';
-import { CsvParserService } from './services/csv-parser.service';
+import CsvParserService from './services/csv-parser.service';
 import { MetricsService } from './services/metrics.service';
 
 @Global()
