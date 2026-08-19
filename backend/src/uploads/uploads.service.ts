@@ -86,9 +86,21 @@ export class UploadsService {
       skipped += rows.length - uniqueRows.length;
 
       if (uniqueRows.length > 0) {
-        await this.prisma.surveyResponse.createMany({
-          data: uniqueRows,
+        const existing = await this.prisma.surveyResponse.findMany({
+          where: { protocol: { in: uniqueRows.map((row) => row.protocol) } },
+          select: { protocol: true },
         });
+
+        const existingSet = new Set(existing.map((row) => row.protocol));
+        const newRows = uniqueRows.filter((row) => !existingSet.has(row.protocol));
+
+        skipped += uniqueRows.length - newRows.length;
+
+        if (newRows.length > 0) {
+          await this.prisma.surveyResponse.createMany({
+            data: newRows,
+          });
+        }
       }
 
       return this.prisma.upload.update({

@@ -1,20 +1,35 @@
 import CloudUpload from '@mui/icons-material/CloudUpload';
-import InfoOutlined from '@mui/icons-material/InfoOutlined';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Step from '@mui/material/Step';
-import StepLabel from '@mui/material/StepLabel';
-import Stepper from '@mui/material/Stepper';
 import Typography from '@mui/material/Typography';
-import { useRef, useState } from 'react';
+import axios from 'axios';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { AppShell } from '../../../shared/components/layout';
 import { PageHeader } from '../../../shared/components/ui';
+import { useUploadCsv } from '../hooks/useUploadCsv';
 
 export function ImportPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState('');
+  const uploadMutation = useUploadCsv();
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+    setFileName(file.name);
+    uploadMutation.mutate(file);
+  };
+
+  function getErrorMessage(error: unknown): string {
+    if (axios.isAxiosError(error)) {
+      const data = error.response?.data as { message?: string } | undefined;
+      if (data?.message) return data.message;
+    }
+    if (error instanceof Error) return error.message;
+    return 'Falha na importação.';
+  }
 
   return (
     <AppShell title="Importar dados">
@@ -23,23 +38,6 @@ export function ImportPage() {
           title="Importar dados"
           subtitle="Utilize o relatório CSV exportado do MktZap para atualizar a base de dados."
         />
-
-        <Card sx={{ mb: 4, bgcolor: 'grey.100' }}>
-          <CardContent sx={{ display: 'flex', gap: 2 }}>
-            <InfoOutlined color="primary" />
-            <Typography variant="body2">
-              A análise atual ocorre no nível de atendente, conforme extraído do MktZap.
-            </Typography>
-          </CardContent>
-        </Card>
-
-        <Stepper activeStep={0} alternativeLabel sx={{ mb: 5 }}>
-          {['Selecionar arquivo', 'Validar dados', 'Importar'].map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
 
         <Card
           variant="outlined"
@@ -55,14 +53,35 @@ export function ImportPage() {
             hidden
             type="file"
             accept=".csv,text/csv"
-            onChange={(event) => setFileName(event.target.files?.[0]?.name ?? '')}
+            onChange={handleFileChange}
           />
-          <Button variant="outlined" onClick={() => inputRef.current?.click()}>
+          <Button
+            variant="outlined"
+            onClick={() => inputRef.current?.click()}
+            disabled={uploadMutation.isPending}
+          >
             Selecionar arquivo
           </Button>
           <Typography variant="caption" component="p" color="text.secondary" sx={{ mt: 3 }}>
             {fileName || 'Formatos aceitos: .csv'}
           </Typography>
+
+          {uploadMutation.isPending && (
+            <Typography color="text.secondary" sx={{ mt: 2 }}>
+              Importando...
+            </Typography>
+          )}
+          {uploadMutation.isSuccess && (
+            <Typography color="success.main" sx={{ mt: 2 }}>
+              Importado com sucesso! {uploadMutation.data.rowCount} registros (
+              {uploadMutation.data.skipped} ignorados)
+            </Typography>
+          )}
+          {uploadMutation.isError && (
+            <Typography color="error.main" sx={{ mt: 2 }}>
+              {getErrorMessage(uploadMutation.error)}
+            </Typography>
+          )}
         </Card>
       </Box>
     </AppShell>

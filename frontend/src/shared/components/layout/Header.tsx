@@ -1,9 +1,7 @@
 import CloudUpload from '@mui/icons-material/CloudUpload';
 import Help from '@mui/icons-material/Help';
-import NotificationsNone from '@mui/icons-material/NotificationsNone';
 import Search from '@mui/icons-material/Search';
 import AppBar from '@mui/material/AppBar';
-import Badge from '@mui/material/Badge';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
@@ -100,14 +98,6 @@ export function Header({ title, drawerWidth }: HeaderProps) {
         </Button>
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-
-        <Tooltip title="Notificações">
-          <IconButton aria-label="Notificações" sx={{ borderRadius: 2, color: 'text.secondary' }}>
-            <Badge color="error" variant="dot">
-              <NotificationsNone />
-            </Badge>
-          </IconButton>
-        </Tooltip>
 
         <Tooltip title="Ajuda">
           <IconButton aria-label="Ajuda" sx={{ borderRadius: 2, color: 'text.secondary' }}>

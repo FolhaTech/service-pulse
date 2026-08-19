@@ -1,5 +1,4 @@
 import Campaign from '@mui/icons-material/Campaign';
-import Mail from '@mui/icons-material/Mail';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -51,10 +50,6 @@ export function AttentionPanel({ agents, threshold = 4 }: AttentionPanelProps) {
             </Box>
           ))}
         </Stack>
-
-        <Button fullWidth variant="contained" startIcon={<Mail />} sx={{ mt: 2 }}>
-          Configurar alertas
-        </Button>
       </CardContent>
     </Card>
   );
